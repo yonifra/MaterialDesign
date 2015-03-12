@@ -6,6 +6,7 @@ package com.cryptocodes.materialdesign;
 public class FeedItem {
     private String title;
     private String thumbnail;
+    private String header;
 
     public String getTitle() {
         return title;
@@ -13,6 +14,15 @@ public class FeedItem {
 
     public void setTitle(String title) {
         this.title = title;
+    }
+
+    public void setHeader(String header) {
+        this.header = header;
+    }
+
+    public String getHeader()
+    {
+        return header;
     }
 
     public String getThumbnail() {

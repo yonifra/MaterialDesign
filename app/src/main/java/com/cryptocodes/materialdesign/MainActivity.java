@@ -1,6 +1,8 @@
 package com.cryptocodes.materialdesign;
 
+import android.opengl.Visibility;
 import android.os.AsyncTask;
+import android.support.v4.widget.SwipeRefreshLayout;
 import android.support.v7.app.ActionBarActivity;
 import android.os.Bundle;
 import android.support.v7.widget.LinearLayoutManager;
@@ -8,11 +10,15 @@ import android.support.v7.widget.RecyclerView;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.view.View;
 import android.view.Window;
+import android.widget.Toast;
 
 import com.crashlytics.android.Crashlytics;
 import com.melnykov.fab.FloatingActionButton;
 
+import com.twitter.sdk.android.Twitter;
+import com.twitter.sdk.android.core.TwitterAuthConfig;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -28,29 +34,64 @@ import java.util.List;
 import io.fabric.sdk.android.Fabric;
 import io.realm.Realm;
 
+// Twitter
+import android.content.Intent;
+import com.twitter.sdk.android.core.Callback;
+import com.twitter.sdk.android.core.Result;
+import com.twitter.sdk.android.core.TwitterException;
+import com.twitter.sdk.android.core.TwitterSession;
+import com.twitter.sdk.android.core.identity.TwitterLoginButton;
+
 
 public class MainActivity extends ActionBarActivity {
+
+    // Note: Your consumer key and secret should be obfuscated in your source code before shipping.
+    private static final String TWITTER_KEY = "4zCGSRgYnCXoHOMKpbhtFfER2";
+    private static final String TWITTER_SECRET = "Z1ull1oTsBZBUPgZ2bRnqlH85vOuUCHmPa1WAyeTncQ3570qRs";
     private static final String TAG = "MATERIAL_DESIGN";
     private List<FeedItem> feedItemList = new ArrayList<FeedItem>();
+    private SwipeRefreshLayout mSwipeRefreshLayout;
+    private TwitterLoginButton loginButton;
 
     private RecyclerView mRecyclerView;
     private MyRecyclerAdapter adapter;
-
-    private String[] myDataset = new String[] { "Yoni", "Pony", "Yampamponi"};
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        Fabric.with(this, new Crashlytics());
+        TwitterAuthConfig authConfig = new TwitterAuthConfig(TWITTER_KEY, TWITTER_SECRET);
+        Fabric.with(this, new Crashlytics(), new Twitter(authConfig));
         setContentView(R.layout.activity_main);
 
-        /* Allow activity to show indeterminate progress-bar */
-        //requestWindowFeature(Window.FEATURE_INDETERMINATE_PROGRESS);
+        loginButton = (TwitterLoginButton) findViewById(R.id.twitter_login_button);
+        loginButton.setCallback(new Callback<TwitterSession>() {
+            @Override
+            public void success(Result<TwitterSession> result) {
+                // Do something with result, which provides a TwitterSession for making API calls
+                loginButton.setVisibility(View.GONE);
+                Toast.makeText(getApplicationContext(), "Login successful!", Toast.LENGTH_SHORT).show();
+            }
+
+            @Override
+            public void failure(TwitterException exception) {
+                // Do something on failure
+                Toast.makeText(getApplicationContext(), exception.getLocalizedMessage(), Toast.LENGTH_LONG).show();
+            }
+        });
 
         /* Initialize recycler view */
         mRecyclerView = (RecyclerView) findViewById(R.id.my_recycler_view);
         mRecyclerView.setLayoutManager(new LinearLayoutManager(this));
+
+        mSwipeRefreshLayout = (SwipeRefreshLayout)findViewById(R.id.swipeRefreshLayout);
+        mSwipeRefreshLayout.setOnRefreshListener(new SwipeRefreshLayout.OnRefreshListener() {
+            @Override
+            public void onRefresh() {
+                // Refresh items
+                refreshItems();
+            }
+        });
 
         FloatingActionButton fab = (FloatingActionButton)findViewById(R.id.fab);
         fab.attachToRecyclerView(mRecyclerView);
@@ -60,6 +101,11 @@ public class MainActivity extends ActionBarActivity {
         new AsyncHttpTask().execute(url);
     }
 
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        loginButton.onActivityResult(requestCode, resultCode, data);
+    }
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
@@ -92,9 +138,8 @@ public class MainActivity extends ActionBarActivity {
 
         @Override
         protected Integer doInBackground(String... params) {
-            InputStream inputStream = null;
             Integer result = 0;
-            HttpURLConnection urlConnection = null;
+            HttpURLConnection urlConnection;
 
             try {
                 /* forming th java.net.URL object */
@@ -110,6 +155,7 @@ public class MainActivity extends ActionBarActivity {
                     BufferedReader r = new BufferedReader(new InputStreamReader(urlConnection.getInputStream()));
                     StringBuilder response = new StringBuilder();
                     String line;
+
                     while ((line = r.readLine()) != null) {
                         response.append(line);
                     }
@@ -134,9 +180,28 @@ public class MainActivity extends ActionBarActivity {
                 adapter = new MyRecyclerAdapter(MainActivity.this, feedItemList);
                 mRecyclerView.setAdapter(adapter);
             } else {
+                Toast.makeText(getBaseContext(), "Failed to fetch data", Toast.LENGTH_LONG);
                 Log.e(TAG, "Failed to fetch data!");
             }
         }
+    }
+
+    private void refreshItems() {
+        // Load items
+        // ...
+        Toast.makeText(getApplicationContext(), "Refreshing...", Toast.LENGTH_SHORT).show();
+
+        // Load complete
+        onItemsLoadComplete();
+    }
+
+    private void onItemsLoadComplete() {
+        // Update the adapter and notify data set changed
+        // ...
+        Toast.makeText(getApplicationContext(), "Refresh Complete!", Toast.LENGTH_SHORT).show();
+
+        // Stop refresh animation
+        mSwipeRefreshLayout.setRefreshing(false);
     }
 
     private void parseResult(String result) {
@@ -153,7 +218,8 @@ public class MainActivity extends ActionBarActivity {
                 JSONObject post = posts.optJSONObject(i);
 
                 FeedItem item = new FeedItem();
-                item.setTitle(post.optString("title"));
+                item.setHeader(post.optString("title"));
+                item.setTitle(post.optString("excerpt"));
                 item.setThumbnail(post.optString("thumbnail"));
                 feedItemList.add(item);
             }

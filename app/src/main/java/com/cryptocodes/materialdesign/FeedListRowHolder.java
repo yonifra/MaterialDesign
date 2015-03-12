@@ -11,11 +11,13 @@ import android.widget.TextView;
 public class FeedListRowHolder extends RecyclerView.ViewHolder {
     protected ImageView thumbnail;
     protected TextView title;
+    protected TextView header;
 
     public FeedListRowHolder(View view) {
         super(view);
         this.thumbnail = (ImageView) view.findViewById(R.id.thumbnail);
-        this.title = (TextView) view.findViewById(R.id.title);
+        this.title = (TextView) view.findViewById(R.id.content);
+        this.header = (TextView) view.findViewById(R.id.header);
     }
 
 }
